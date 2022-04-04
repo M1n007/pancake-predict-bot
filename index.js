@@ -8,9 +8,8 @@ const chalkAnimation = require('chalk-animation');
 const inquirer = require('inquirer');
 const { Wallet } = require('ethers');
 const delay = require('delay');
-
-
-
+const NodeCache = require( "node-cache" );
+const myCache = new NodeCache();
 
 
 function splitNumberPer3digits(n) {
@@ -39,7 +38,6 @@ const isBull = (onePreviousEpoch, secondPreviousEpoch) => {
     let wallet = {};
 
 
-
     const questions = [
         {
             type: 'password',
@@ -48,7 +46,6 @@ const isBull = (onePreviousEpoch, secondPreviousEpoch) => {
             message: "Insert your Mnemonic / Private Key here : ",
             validate: function (value) {
                 if (value.includes('0x') || !/\s/g.test(value)) {
-                    console.log('masuk sini')
                     try {
                         wallet = new ethers.Wallet(value, provider);
                         return true;
@@ -94,9 +91,31 @@ const isBull = (onePreviousEpoch, secondPreviousEpoch) => {
 
         ppv2Contract.on('StartRound', async (epoch) => {
 
+            // const haveRound = myCache.get('round');
+
+            // if (haveRound) {
+            //     console.log(`[ ${moment().format("HH:mm:ss")} ] `, chalk.green('Are you winning ?'));
+            //     const claimableEpochs = await ppv2Contract.claimable(epoch-1, wallet.address);
+            //     if (claimableEpochs) {
+            //         console.log(`[ ${moment().format("HH:mm:ss")} ] `, chalk.green('Off Course Yes!!! I will claim for you, wait.'));
+            //         try{
+            //             const tx = await ppv2Contract.claim(claimableEpochs);
+
+            //             const receipt = await tx.wait();
+            //             console.log(receipt)
+
+            //             console.log(`[ ${moment().format("HH:mm:ss")} ] `, chalk.green(`Epoch ${epoch-1} claimed....Yess`));
+            //         }catch(e){
+            //             console.log(`[ ${moment().format("HH:mm:ss")} ] `, chalk.yellow(`Failed to claim, try manually :'(`));
+            //         }
+            //     }else{
+            //         console.log(`[ ${moment().format("HH:mm:ss")} ] `, chalk.red('Off Course NOT!!! Hahahaaha'));
+            //     }
+            // }
+
+
             console.log('')
             console.log(`[ ${moment().format("HH:mm:ss")} ] `, chalk.green(`Start Epoch : ${epoch.toString()}`));
-
 
             const previousRoundResult = await ppv2Contract.rounds(parseInt(epoch) - 1);
             const secondPreviousRound = await ppv2Contract.rounds(parseInt(epoch) - 2);
@@ -169,6 +188,8 @@ const isBull = (onePreviousEpoch, secondPreviousEpoch) => {
 
 
             }
+
+            // myCache.set('round', 'haveround baby')
 
 
         });
