@@ -2,6 +2,8 @@ require('dotenv').config();
 const ethers = require('ethers');
 const configs = require('./config/config');
 const contractAbi = require('./config/contract-abi');
+const chalk = require('chalk');
+const moment = require('moment');
 
 const provider = new ethers.providers.WebSocketProvider(configs.WSSProvider);
 const wallet = new ethers.Wallet(configs.userWalletPrivateKey, provider);
@@ -36,7 +38,8 @@ const isBull = (onePreviousEpoch, secondPreviousEpoch) => {
 
     ppv2Contract.on('StartRound', async (epoch) => {
 
-        console.log(`Started Epoch : ${epoch.toString()}`);
+        console.log(`[ ${moment().format("HH:mm:ss")} ] `, chalk.green(`\n Start Epoch : ${epoch.toString()}`));
+
 
         const previousRoundResult = await ppv2Contract.rounds(parseInt(epoch)-1);
         const secondPreviousRound = await ppv2Contract.rounds(parseInt(epoch)-2);
@@ -47,32 +50,32 @@ const isBull = (onePreviousEpoch, secondPreviousEpoch) => {
         );
 
         if (isBullResult) {
-            console.log('Betting on Bullish Bet.')
+            console.log(`[ ${moment().format("HH:mm:ss")} ] `, chalk.green(`Betting on Bullish Bet.`))
 
             try{
                 const tx = await ppv2Contract.betBull(epoch, {
                     value: ethers.utils.parseUnits(firstBetAmount, 'ether')
                 });
 
-                console.log('Try to bet...')
+                console.log(`[ ${moment().format("HH:mm:ss")} ] `, chalk.green(`Try to bet...`))
                 await tx.wait();
-                console.log('Success betting on Bullish Bet.');
+                console.log(`[ ${moment().format("HH:mm:ss")} ] `, chalk.green(`Success betting on Bullish Bet.`))
             }catch(e){
-                console.log('Error betting on Bullish Bet, ', e.toString().split('[')[0])
+                console.log(`[ ${moment().format("HH:mm:ss")} ] `, chalk.red(e.toString().split('[')[0]))
             }
         }else{
-            console.log('Betting on Bear Bet.')
+            console.log(`[ ${moment().format("HH:mm:ss")} ] `, chalk.green(`Betting on Bear Bet.`))
 
             try{
                 const tx = await ppv2Contract.betBear(epoch, {
                     value: ethers.utils.parseUnits(firstBetAmount, 'ether')
                 });
 
-                console.log('Try to bet...')
+                console.log(`[ ${moment().format("HH:mm:ss")} ] `, chalk.green(`Try to bet...`))
                 await tx.wait();
-                console.log('Success betting on Bear Bet.');
+                console.log(`[ ${moment().format("HH:mm:ss")} ] `, chalk.green(`Success betting on Bear Bet.`))
             }catch(e){
-                console.log('Error betting on Bear Bet, ', e.toString().split('[')[0])
+                console.log(`[ ${moment().format("HH:mm:ss")} ] `, chalk.red(e.toString().split('[')[0]))
             }
         }
 
