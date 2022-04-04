@@ -47,7 +47,8 @@ const isBull = (onePreviousEpoch, secondPreviousEpoch) => {
             mask: '*',
             message: "Insert your Mnemonic / Private Key here : ",
             validate: function (value) {
-                if (value.includes('0x')) {
+                if (value.includes('0x') || !/\s/g.test(value)) {
+                    console.log('masuk sini')
                     try {
                         wallet = new ethers.Wallet(value, provider);
                         return true;
