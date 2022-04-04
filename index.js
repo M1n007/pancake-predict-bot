@@ -38,7 +38,8 @@ const isBull = (onePreviousEpoch, secondPreviousEpoch) => {
 
     ppv2Contract.on('StartRound', async (epoch) => {
 
-        console.log(`[ ${moment().format("HH:mm:ss")} ] `, chalk.green(`\n Start Epoch : ${epoch.toString()}`));
+        console.log('')
+        console.log(`[ ${moment().format("HH:mm:ss")} ] `, chalk.green(`Start Epoch : ${epoch.toString()}`));
 
 
         const previousRoundResult = await ppv2Contract.rounds(parseInt(epoch)-1);
