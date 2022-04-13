@@ -8,7 +8,7 @@ const chalkAnimation = require('chalk-animation');
 const inquirer = require('inquirer');
 const { Wallet } = require('ethers');
 const delay = require('delay');
-const NodeCache = require( "node-cache" );
+const NodeCache = require("node-cache");
 const myCache = new NodeCache();
 
 
@@ -31,6 +31,72 @@ const isBull = (onePreviousEpoch, secondPreviousEpoch) => {
     }
 
 };
+
+const betting = async (method, ppv2Contract, epoch, betAmount) => {
+    if (method.toLowerCase() == 'up') {
+        console.log(`[ ${moment().format("HH:mm:ss")} ] `, chalk.green(`Betting on Bullish Bet.`))
+
+        let error = true;
+        let errorDetail = '';
+        do {
+            if (!errorDetail || errorDetail.includes('cannot estimate gas')) {
+                try {
+                    await delay(1000);
+                    const tx = await ppv2Contract.betBull(epoch, {
+                        value: ethers.utils.parseUnits(betAmount, 'ether')
+                    });
+
+                    console.log(`[ ${moment().format("HH:mm:ss")} ] `, chalk.green(`Try to bet...`))
+                    await tx.wait();
+                    error = false;
+                    console.log(`[ ${moment().format("HH:mm:ss")} ] `, chalk.green(`Success betting on Bullish Bet.`))
+                } catch (e) {
+                    errorDetail = e.toString().split('[')[0];
+                    error = true;
+                    console.log(`[ ${moment().format("HH:mm:ss")} ] `, chalk.red(e.toString().split('[')[0]))
+
+                }
+            } else {
+                error = false;
+            }
+        } while (error);
+
+        error = true;
+
+
+    } else {
+        console.log(`[ ${moment().format("HH:mm:ss")} ] `, chalk.green(`Betting on Bear Bet.`))
+
+        let error = true;
+        let errorDetail = '';
+        do {
+            if (!errorDetail || errorDetail.includes('cannot estimate gas')) {
+                try {
+                    await delay(1000);
+                    const tx = await ppv2Contract.betBear(epoch, {
+                        value: ethers.utils.parseUnits(betAmount, 'ether')
+                    });
+
+                    console.log(`[ ${moment().format("HH:mm:ss")} ] `, chalk.green(`Try to bet...`))
+                    await tx.wait();
+                    error = false;
+                    console.log(`[ ${moment().format("HH:mm:ss")} ] `, chalk.green(`Success betting on Bear Bet.`))
+                } catch (e) {
+                    error = true;
+                    errorDetail = e.toString().split('[')[0];
+                    console.log(`[ ${moment().format("HH:mm:ss")} ] `, chalk.red(e.toString().split('[')[0]))
+                }
+            } else {
+                error = false;
+            }
+
+        } while (error);
+
+        error = true;
+
+
+    }
+}
 
 (async () => {
 
@@ -65,9 +131,18 @@ const isBull = (onePreviousEpoch, secondPreviousEpoch) => {
 
             },
         },
+        {
+            type: 'input',
+            name: 'method',
+            message: "Input your method ex. (UP UP DOWN DOWN) : ",
+            default() {
+                return 'UP UP DOWN DOWN';
+            },
+        }
     ];
 
-    inquirer.prompt(questions).then((answers) => {
+    inquirer.prompt(questions).then(async (answers) => {
+
 
         console.log('')
         chalkAnimation.glitch('Started Pancake Prediction BOT')
@@ -79,117 +154,166 @@ const isBull = (onePreviousEpoch, secondPreviousEpoch) => {
         // init contract pancake predict
         const ppv2Contract = new ethers.Contract(ppv2address, contractAbi.pancakePredictV2, wallet);
 
+        // Compent Multiply : x${chalk.red(configs.compentMultiply)}
+
         console.log(`
         ############################# CONFIG #############################
                                                                        
         Your wallet address :   ${chalk.green(wallet.address)}      
         Bet Amount :   ${chalk.green(firstBetAmount)} BNB
+        Method : ${chalk.yellow(answers['method'])}
                                                                  
                                                                         
         ##################################################################
         `)
 
+        const currentEpoch = await ppv2Contract.currentEpoch();
+
+
+        const methodToArray = answers['method'].split(' ');
+
+        //first bet
+        if (methodToArray[0].toLowerCase() == 'up') {
+            console.log(`[ ${moment().format("HH:mm:ss")} ] `, chalk.green(`Start Epoch : ${currentEpoch.toString()}`));
+            await betting('up', ppv2Contract, currentEpoch, firstBetAmount);
+            methodToArray.splice(0, 1);
+            myCache.set('round', {
+                round: 1,
+                dataMethod: methodToArray,
+                epoch: currentEpoch
+            })
+        } else {
+            console.log(`[ ${moment().format("HH:mm:ss")} ] `, chalk.green(`Start Epoch : ${currentEpoch.toString()}`));
+            await betting('down', ppv2Contract, currentEpoch, firstBetAmount);
+            methodToArray.splice(0, 1);
+            myCache.set('round', {
+                round: 1,
+                dataMethod: methodToArray,
+                epoch: currentEpoch
+            })
+        }
+
+
+
         ppv2Contract.on('StartRound', async (epoch) => {
 
-            // const haveRound = myCache.get('round');
+            const haveRound = myCache.get('round');
 
-            // if (haveRound) {
-            //     console.log(`[ ${moment().format("HH:mm:ss")} ] `, chalk.green('Are you winning ?'));
-            //     const claimableEpochs = await ppv2Contract.claimable(epoch-1, wallet.address);
-            //     if (claimableEpochs) {
-            //         console.log(`[ ${moment().format("HH:mm:ss")} ] `, chalk.green('Off Course Yes!!! I will claim for you, wait.'));
-            //         try{
-            //             const tx = await ppv2Contract.claim(claimableEpochs);
+            if (epoch.toString() !== haveRound.epoch.toString()) {
 
-            //             const receipt = await tx.wait();
-            //             console.log(receipt)
+                const haveCompent = myCache.get('compent');
+                if (!haveCompent) {
+                    // const haveRound = myCache.get('round');
+                    // if (haveRound) {
+                    //     console.log('')
+                    //     console.log(`[ ${moment().format("HH:mm:ss")} ] `, chalk.magenta('Are you winning on previous round ? wait a moment for closing.'));
+                    //     const claimableEpochs = await ppv2Contract.claimable(parseInt(haveRound.epoch.toString()), wallet.address);
+                    //     console.log(claimableEpochs, haveRound.epoch.toString())
+                    //     if (claimableEpochs) {
+                    //         console.log(`[ ${moment().format("HH:mm:ss")} ] `, chalk.green('Off Course Yes!!! I will claim for you, wait.'));
+                    //         try {
+                    //             const tx = await ppv2Contract.claim(haveRound.epoch);
 
-            //             console.log(`[ ${moment().format("HH:mm:ss")} ] `, chalk.green(`Epoch ${epoch-1} claimed....Yess`));
-            //         }catch(e){
-            //             console.log(`[ ${moment().format("HH:mm:ss")} ] `, chalk.yellow(`Failed to claim, try manually :'(`));
-            //         }
-            //     }else{
-            //         console.log(`[ ${moment().format("HH:mm:ss")} ] `, chalk.red('Off Course NOT!!! Hahahaaha'));
-            //     }
-            // }
+                    //             const receipt = await tx.wait();
+                    //             console.log(receipt)
+
+                    //             console.log(`[ ${moment().format("HH:mm:ss")} ] `, chalk.green(`Epoch ${parseInt(haveRound.epoch.toString())} claimed....Yess`));
+                    //         } catch (e) {
+                    //             console.log(e)
+                    //             console.log(`[ ${moment().format("HH:mm:ss")} ] `, chalk.yellow(`Failed to claim, try manually :'(`));
+                    //         }
+                    //     } else {
+                    //         myCache.set('compent', {
+                    //             position: 1,
+                    //             amount: firstBetAmount * parseInt(configs.compentMultiply)
+                    //         })
+                    //         console.log(`[ ${moment().format("HH:mm:ss")} ] `, chalk.red('Off Course NOT!!! Hahahaaha'));
+                    //     }
+                    // }
 
 
-            console.log('')
-            console.log(`[ ${moment().format("HH:mm:ss")} ] `, chalk.green(`Start Epoch : ${epoch.toString()}`));
 
-            const previousRoundResult = await ppv2Contract.rounds(parseInt(epoch) - 1);
-            const secondPreviousRound = await ppv2Contract.rounds(parseInt(epoch) - 2);
 
-            const isBullResult = await isBull(
-                parseInt(previousRoundResult.lockPrice.toString()),
-                parseInt(secondPreviousRound.lockPrice.toString())
-            );
+                    console.log('')
+                    console.log(`[ ${moment().format("HH:mm:ss")} ] `, chalk.green(`Start Epoch : ${epoch.toString()}`));
 
-            if (isBullResult) {
-                console.log(`[ ${moment().format("HH:mm:ss")} ] `, chalk.green(`Betting on Bullish Bet.`))
-
-                let error = true;
-                let errorDetail = '';
-                do {
-                    if (error && !errorDetail.includes('Error: insufficient funds for intrinsic transaction co')) {
-                        try {
-                            await delay(1000);
-                            const tx = await ppv2Contract.betBull(epoch, {
-                                value: ethers.utils.parseUnits(firstBetAmount, 'ether')
-                            });
-
-                            console.log(`[ ${moment().format("HH:mm:ss")} ] `, chalk.green(`Try to bet...`))
-                            await tx.wait();
-                            error = false;
-                            console.log(`[ ${moment().format("HH:mm:ss")} ] `, chalk.green(`Success betting on Bullish Bet.`))
-                        } catch (e) {
-                            errorDetail = e.toString().split('[')[0];
-                            error = true;
-                            console.log(`[ ${moment().format("HH:mm:ss")} ] `, chalk.red(e.toString().split('[')[0]))
-
-                        }
+                    let checkRound = myCache.get('round');
+                    if (checkRound.dataMethod.length >= 1) {
+                        await betting(checkRound.dataMethod[0], ppv2Contract, epoch, firstBetAmount);
+                        checkRound.dataMethod.splice(0, 1);
+                        myCache.set('round', {
+                            round: checkRound.round + 1,
+                            dataMethod: checkRound.dataMethod,
+                            epoch: parseInt(epoch.toString())
+                        });
                     } else {
-                        error = false;
+                        await betting(methodToArray[0], ppv2Contract, epoch, firstBetAmount);
+                        methodToArray.splice(0, 1);
+                        myCache.set('round', {
+                            round: 1,
+                            dataMethod: methodToArray,
+                            epoch: parseInt(epoch.toString())
+                        });
                     }
-                } while (error);
+                } else {
+                    const haveRound = myCache.get('round');
 
-                error = true;
+                    if (haveRound) {
+                        if (parseInt(haveRound.epoch.toString()) == parseInt(epoch.toString()) - 1) {
+                            console.log('')
+                            console.log(`[ ${moment().format("HH:mm:ss")} ] `, chalk.magenta('Are you winning on previous round ? wait a moment for closing.'));
+                            const claimableEpochs = await ppv2Contract.claimable(parseInt(haveRound.epoch.toString()), wallet.address);
+                            if (claimableEpochs) {
+                                console.log(`[ ${moment().format("HH:mm:ss")} ] `, chalk.green('Off Course Yes!!! I will claim for you, wait.'));
+                                try {
+                                    const tx = await ppv2Contract.claim(haveRound.epoch);
 
+                                    const receipt = await tx.wait();
+                                    console.log(receipt)
 
-            } else {
-                console.log(`[ ${moment().format("HH:mm:ss")} ] `, chalk.green(`Betting on Bear Bet.`))
-
-                let error = true;
-                let errorDetail = '';
-                do {
-                    if (error && !errorDetail.includes('Error: insufficient funds for intrinsic transaction co')) {
-                        try {
-                            await delay(1000);
-                            const tx = await ppv2Contract.betBear(epoch, {
-                                value: ethers.utils.parseUnits(firstBetAmount, 'ether')
-                            });
-
-                            console.log(`[ ${moment().format("HH:mm:ss")} ] `, chalk.green(`Try to bet...`))
-                            await tx.wait();
-                            error = false;
-                            console.log(`[ ${moment().format("HH:mm:ss")} ] `, chalk.green(`Success betting on Bear Bet.`))
-                        } catch (e) {
-                            error = true;
-                            errorDetail = e.toString().split('[')[0];
-                            console.log(`[ ${moment().format("HH:mm:ss")} ] `, chalk.red(e.toString().split('[')[0]))
+                                    console.log(`[ ${moment().format("HH:mm:ss")} ] `, chalk.green(`Epoch ${haveRound.epoch.toString()} claimed....Yess`));
+                                } catch (e) {
+                                    console.log(`[ ${moment().format("HH:mm:ss")} ] `, chalk.yellow(`Failed to claim, try manually :'(`));
+                                }
+                                myCache.del('compent')
+                            } else {
+                                myCache.set('compent', {
+                                    position: 1,
+                                    amount: haveCompent.amount * parseInt(configs.compentMultiply)
+                                })
+                                console.log(`[ ${moment().format("HH:mm:ss")} ] `, chalk.red('Off Course NOT!!! Hahahaaha'));
+                            }
                         }
-                    } else {
-                        error = false;
+
                     }
 
-                } while (error);
 
-                error = true;
+                    console.log('')
+                    console.log(`[ ${moment().format("HH:mm:ss")} ] `, chalk.green(`Start Epoch : ${epoch.toString()}, compensation time!!`));
+
+                    let checkRound = myCache.get('round');
+                    if (checkRound.dataMethod.length >= 1) {
+                        await betting(checkRound.dataMethod[0], ppv2Contract, epoch, parseFloat(haveCompent.amount).toFixed(4).toString());
+                        checkRound.dataMethod.splice(0, 1);
+                        myCache.set('round', {
+                            round: checkRound + 1,
+                            dataMethod: checkRound.dataMethod,
+                            epoch
+                        });
+                    } else {
+                        await betting(methodToArray[0], ppv2Contract, epoch, parseFloat(haveCompent.amount).toFixed(4).toString());
+                        methodToArray.splice(0, 1);
+                        myCache.set('round', {
+                            round: 1,
+                            dataMethod: methodToArray,
+                            epoch
+                        });
+                    }
+                }
 
 
             }
 
-            // myCache.set('round', 'haveround baby')
 
 
         });
